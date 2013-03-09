@@ -149,7 +149,7 @@ abstract class Keyring_Service {
 			echo '<div class="updated"><p>' . __( 'Credentials saved.', 'keyring' ) . '</p></div>';
 		}
 
-		$api_key = $api_secret = '';
+		$app_id = $api_key = $api_secret = '';
 		if ( $creds = $this->get_credentials() ) {
 			$app_id     = $creds['app_id'];
 			$api_key    = $creds['key'];
@@ -174,7 +174,7 @@ abstract class Keyring_Service {
 		echo '</table>';
 		echo '<p class="submitbox">';
 		echo '<input type="submit" name="submit" value="' . __( 'Save Changes', 'keyring' ) . '" id="submit" class="button-primary">';
-		echo '<a href="' . esc_url( Keyring_Util::admin_url() ) . '" class="submitdelete" style="margin-left:2em;">' . __( 'Cancel', 'keyring' ) . '</a>';
+		echo '<a href="' . esc_url( $_SERVER['HTTP_REFERER'] ) . '" class="submitdelete" style="margin-left:2em;">' . __( 'Cancel', 'keyring' ) . '</a>';
 		echo '</p>';
 		echo '</form>';
 		?><script type="text/javascript" charset="utf-8">
