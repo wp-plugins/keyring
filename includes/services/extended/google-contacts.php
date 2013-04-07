@@ -20,8 +20,10 @@ class Keyring_Service_GoogleContacts extends Keyring_Service_OAuth2 {
 		parent::__construct();
 
 		// Enable "basic" UI for entering key/secret
-		if ( ! KEYRING__HEADLESS_MODE )
+		if ( ! KEYRING__HEADLESS_MODE ) {
 			add_action( 'keyring_google-contacts_manage_ui', array( $this, 'basic_ui' ) );
+			add_filter( 'keyring_google-contacts_basic_ui_intro', array( $this, 'basic_ui_intro' ) );
+		}
 
 		// Set scope
 		add_filter( 'keyring_google-contacts_request_token_params', array( $this, 'request_token_params' ) );
@@ -33,25 +35,10 @@ class Keyring_Service_GoogleContacts extends Keyring_Service_OAuth2 {
 		$this->set_endpoint( 'access_token', 'https://accounts.google.com/o/oauth2/token',    'POST' );
 		$this->set_endpoint( 'self',         'https://www.googleapis.com/oauth2/v1/userinfo', 'GET'  );
 
-		if (
-			defined( 'KEYRING__GOOGLECONTACTS_URI' )
-		&&
-			defined( 'KEYRING__GOOGLECONTACTS_ID' )
-		&&
-			defined( 'KEYRING__GOOGLECONTACTS_KEY' )
-		&&
-			defined( 'KEYRING__GOOGLECONTACTS_SECRET' )
-		) {
-			$this->app_id       = KEYRING__GOOGLECONTACTS_ID;
-			$this->redirect_uri = KEYRING__GOOGLECONTACTS_URI;
-			$this->key          = KEYRING__GOOGLECONTACTS_KEY;
-			$this->secret       = KEYRING__GOOGLECONTACTS_SECRET;
-		} else if ( $creds = $this->get_credentials() ) {
-			// $this->app_id       = $creds['app_id'];
-			$this->redirect_uri = $creds['redirect_uri'];
-			$this->key          = $creds['key'];
-			$this->secret       = $creds['secret'];
-		}
+		$creds = $this->get_credentials();
+		$this->redirect_uri = $creds['redirect_uri'];
+		$this->key          = $creds['key'];
+		$this->secret       = $creds['secret'];
 
 		$this->consumer = new OAuthConsumer( $this->key, $this->secret, $this->callback_url );
 		$this->signature_method = new OAuthSignatureMethod_HMAC_SHA1;
@@ -64,6 +51,38 @@ class Keyring_Service_GoogleContacts extends Keyring_Service_OAuth2 {
 			$this->callback_url = $creds['redirect_uri']; // Allow user to manually enter a redirect URI
 		else
 			$this->callback_url = remove_query_arg( array( 'nonce', 'kr_nonce' ), $this->callback_url ); // At least strip nonces, since you can't save them in your app config
+	}
+
+	function basic_ui_intro() {
+		echo '<p>' . __( "Google controls access to all of their APIs through their API Console. <a href='https://code.google.com/apis/console'>Go to the console</a> and click the project dropdown just under the logo in the upper left of the screen. Click <strong>Create&hellip;</strong> to create a new project. Enter a name and then click <strong>Create project</strong>. You don't technically need access to any of the additional APIs, but if you want to, then feel free to enable them", 'keyring' ) . '</p>';
+		echo '<p>' . __( "Now you need to set up an OAuth Client ID.", 'keyring' ) . '</p>';
+		echo '<ol>';
+		echo '<li>' . __( "Click <strong>API Access</strong> in the menu on the left.", 'keyring' ) . '</li>';
+		echo '<li>' . __( "Click the big blue button labelled <strong>Create an OAuth 2.0 client ID&hellip;</strong>", 'keyring' ) . '</li>';
+		echo '<li>' . __( "You must enter a <strong>Product name</strong>, but you can skip the logo and home page URL", 'keyring' ) . '</li>';
+		echo '<li>' . __( "Leave the Application type set to <strong>Web application</strong>", 'keyring' ) . '</li>';
+		echo '<li>' . __( "Next to <strong>Your site or hostname</strong>, click <strong>(more options)</strong> <code>%s</code>", 'keyring' ) . '</li>';
+		echo '<li>' . sprintf( __( "In the <strong>Authorized Redirect URIs</strong> box, enter the URL <code>%s</code>", 'keyring' ), Keyring_Util::admin_url( 'google', array( 'action' => 'verify' ) ) ) . '</li>';
+		echo '<li>' . sprintf( __( "For the <strong>Authorized JavaScript Origins</strong>, enter the URL of your domain, e.g. <code>http://%s</code>", 'keyring' ), $_SERVER['HTTP_HOST'] ) . '</li>';
+		echo '<li>' . __( "Click <strong>Create client ID</strong> when you're done", 'keyring' ) . '</li>';
+		echo '</ol>';
+		echo '<p>' . __( "Once you've saved your details, copy the <strong>Client ID</strong> into the <strong>Client ID</strong> field below, and the <strong>Client secret</strong> value into <strong>Client Secret</strong>. The Redirect URI box should fill itself out for you.", 'keyring' ) . '</p>';
+	}
+
+	function _get_credentials() {
+		if (
+			defined( 'KEYRING__GOOGLECONTACTS_KEY' )
+		&&
+			defined( 'KEYRING__GOOGLECONTACTS_SECRET' )
+		) {
+			return array(
+				'redirect_uri' => defined( 'KEYRING__GOOGLECONTACTS_URI' ) ? constant( 'KEYRING__GOOGLECONTACTS_URI' ) : '', // optional
+				'key'          => constant( 'KEYRING__GOOGLECONTACTS_KEY' ),
+				'secret'       => constant( 'KEYRING__GOOGLECONTACTS_SECRET' ),
+			);
+		} else {
+			return null;
+		}
 	}
 
 	function request_token_params( $params ) {
@@ -140,7 +159,6 @@ class Keyring_Service_GoogleContacts extends Keyring_Service_OAuth2 {
 		if ( isset( $_POST['api_key'] ) && isset( $_POST['api_secret'] ) ) {
 			// Store credentials against this service
 			$this->update_credentials( array(
-				'app_id'       => stripslashes( $_POST['app_id'] ),
 				'key'          => stripslashes( $_POST['api_key'] ),
 				'secret'       => stripslashes( $_POST['api_secret'] ),
 				'redirect_uri' => stripslashes( $_POST['redirect_uri'] ),
@@ -150,13 +168,15 @@ class Keyring_Service_GoogleContacts extends Keyring_Service_OAuth2 {
 
 		$api_key = $api_secret = $redirect_uri = '';
 		if ( $creds = $this->get_credentials() ) {
-			$app_id       = $creds['app_id'];
 			$api_key      = $creds['key'];
 			$api_secret   = $creds['secret'];
 			$redirect_uri = $creds['redirect_uri'];
 		}
 
 		echo apply_filters( 'keyring_' . $this->get_name() . '_basic_ui_intro', '' );
+
+		if ( ! $redirect_uri )
+			$redirect_uri = Keyring_Util::admin_url( 'google', array( 'action' => 'verify' ) );
 
 		// Output basic form for collecting key/secret
 		echo '<form method="post" action="">';

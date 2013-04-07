@@ -112,7 +112,7 @@ class Keyring_Service_HTTP_Basic extends Keyring_Service {
 			Keyring_Util::debug( $keyring_request_token );
 
 			// Remove request token, don't need it any more.
-			$this->store->delete( array( 'id' => $state , 'type' => 'request') );
+			$this->store->delete( array( 'id' => $state, 'type' => 'request' ) );
 		}
 
 		if ( !strlen( $_POST['username'] ) ) {
@@ -128,6 +128,8 @@ class Keyring_Service_HTTP_Basic extends Keyring_Service {
 			wp_safe_redirect( $url );
 			exit;
 		}
+
+		// HTTP Basic does not use Keyring_Request_Tokens, since there's only one step
 
 		$token = new Keyring_Access_Token(
 			$this->get_name(),
@@ -203,7 +205,7 @@ class Keyring_Service_HTTP_Basic extends Keyring_Service {
 		}
 
 		Keyring_Util::debug( $res );
-
+		$this->set_request_response_code( wp_remote_retrieve_response_code( $res ) );
 		if ( 200 == wp_remote_retrieve_response_code( $res ) || 201 == wp_remote_retrieve_response_code( $res ) ) {
 			if ( $raw_response )
 				return wp_remote_retrieve_body( $res );

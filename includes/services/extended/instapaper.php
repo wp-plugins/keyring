@@ -14,6 +14,7 @@ class Keyring_Service_Instapaper extends Keyring_Service_OAuth1 {
 		// Enable "basic" UI for entering key/secret, and the request UI for user/pass
 		if ( ! KEYRING__HEADLESS_MODE ) {
 			add_action( 'keyring_instapaper_manage_ui', array( $this, 'basic_ui' ) );
+			add_filter( 'keyring_instapaper_basic_ui_intro', array( $this, 'basic_ui_intro' ) );
 			add_action( 'keyring_instapaper_request_ui', array( $this, 'request_ui' ) );
 		}
 
@@ -22,26 +23,20 @@ class Keyring_Service_Instapaper extends Keyring_Service_OAuth1 {
 		$this->set_endpoint( 'access_token', 'https://www.instapaper.com/api/1/oauth/access_token',         'POST' );
 		$this->set_endpoint( 'verify',       'https://www.instapaper.com/api/1/account/verify_credentials', 'POST' );
 
-		if (
-			defined( 'KEYRING__INSTAPAPER_ID' )
-		&&
-			defined( 'KEYRING__INSTAPAPER_KEY' )
-		&&
-			defined( 'KEYRING__INSTAPAPER_SECRET' )
-		) {
-			$this->app_id  = KEYRING__INSTAPAPER_ID;
-			$this->key     = KEYRING__INSTAPAPER_KEY;
-			$this->secret  = KEYRING__INSTAPAPER_SECRET;
-		} else if ( $creds = $this->get_credentials() ) {
-			$this->app_id  = $creds['app_id'];
-			$this->key     = $creds['key'];
-			$this->secret  = $creds['secret'];
-		}
+		$creds = $this->get_credentials();
+		$this->app_id  = $creds['app_id'];
+		$this->key     = $creds['key'];
+		$this->secret  = $creds['secret'];
 
 		$this->consumer = new OAuthConsumer( $this->key, $this->secret, $this->callback_url );
 		$this->signature_method = new OAuthSignatureMethod_HMAC_SHA1;
 
 		$this->requires_token( true );
+	}
+
+	function basic_ui_intro() {
+		echo '<p>' . __( "To use the Instapaper API, you need to get manually approved. <a href='http://www.instapaper.com/main/request_oauth_consumer_token'>Apply here</a>, then wait for a reply email.", 'keyring' ) . '</p>';
+		echo '<p>' . __( "Once you get approved, you'll get an email back with your details. Copy the <strong>OAuth consumer key</strong> value into the <strong>API Key</strong> field, and the <strong>OAuth consumer secret</strong> value into the <strong>API Secret</strong> field and click save (you don't need an App ID value for Instapaper).", 'keyring' ) . '</p>';
 	}
 
 	/**
@@ -88,7 +83,7 @@ class Keyring_Service_Instapaper extends Keyring_Service_OAuth1 {
 		echo apply_filters( 'keyring_' . $this->get_name() . '_request_ui_intro', '' );
 
 		// Output basic form for collecting user/pass
-		echo '<p>' . sprintf( __( 'Enter your username and password for accessing <strong>%s</strong>:', 'keyring' ), $this->get_label() ) . '</p>';
+		echo '<p>' . sprintf( __( 'Enter your username (or email address) and password for accessing <strong>%s</strong>:', 'keyring' ), $this->get_label() ) . '</p>';
 		echo '<form method="post" action="">';
 		echo '<input type="hidden" name="service" value="' . esc_attr( $this->get_name() ) . '" />';
 		echo '<input type="hidden" name="action" value="verify" />';

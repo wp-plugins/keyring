@@ -14,6 +14,8 @@ abstract class Keyring_Service {
 	protected $requires_token = true;
 	protected $store          = false;
 
+	private   $request_response_code = '';
+
 	/**
 	 * Handle the first part of getting a Token for this Service. In some cases
 	 * this may involve UI, in others it might just be a redirect.
@@ -125,6 +127,14 @@ abstract class Keyring_Service {
 		return true;
 	}
 
+	function get_request_response_code() {
+		return $this->request_response_code;
+	}
+
+	function set_request_response_code( $code ) {
+		$this->request_response_code = $code;
+	}
+
 	function basic_ui() {
 		if ( !isset( $_REQUEST['nonce'] ) || !wp_verify_nonce( $_REQUEST['nonce'], 'keyring-manage-' . $this->get_name() ) ) {
 			Keyring::error( __( 'Invalid/missing management nonce.', 'keyring' ) );
@@ -165,7 +175,7 @@ abstract class Keyring_Service {
 		wp_nonce_field( 'keyring-manage', 'kr_nonce', false );
 		wp_nonce_field( 'keyring-manage-' . $this->get_name(), 'nonce', false );
 		echo '<table class="form-table">';
-		echo '<tr><th scope="row">' . __( 'App ID (optional)', 'keyring' ) . '</th>';
+		echo '<tr><th scope="row">' . __( 'App ID', 'keyring' ) . '</th>';
 		echo '<td><input type="text" name="app_id" value="' . esc_attr( $app_id ) . '" id="app_id" class="regular-text"></td></tr>';
 		echo '<tr><th scope="row">' . __( 'API Key', 'keyring' ) . '</th>';
 		echo '<td><input type="text" name="api_key" value="' . esc_attr( $api_key ) . '" id="api_key" class="regular-text"></td></tr>';
@@ -191,9 +201,38 @@ abstract class Keyring_Service {
 	 * @return Array containing credentials or false if none
 	 */
 	function get_credentials() {
+		// First attempt custom credentials for this service
+		// Return null from _get_credentials() to allow falling through to the other checks below
+		// Return false if the service requires no configuration
+		if ( method_exists( $this, '_get_credentials' ) ) {
+			$creds = $this->_get_credentials();
+
+			if ( !is_null( $creds ) )
+				return $creds;
+		}
+
+		// Then check for generic constants
+		$name = $this->get_name();
+		$name = strtoupper( preg_replace( '/[^a-zA-Z0-9]/', '', $name ) ); // Remove all non alpha-numeric chars from name
+		if (
+			defined( 'KEYRING__' . $name . '_ID' )
+		&&
+			defined( 'KEYRING__' . $name . '_KEY' )
+		&&
+			defined( 'KEYRING__' . $name . '_SECRET' )
+		) {
+			return array(
+				'app_id' => constant( 'KEYRING__' . $name . '_ID' ),
+				'key'    => constant( 'KEYRING__' . $name . '_KEY' ),
+				'secret' => constant( 'KEYRING__' . $name . '_SECRET' ),
+			);
+		}
+
+		// Last check in the database for a shared store of credentials
 		$all = apply_filters( 'keyring_credentials', get_option( 'keyring_credentials' ) );
 		if ( !empty( $all[ $this->get_name() ] ) )
 			return $all[ $this->get_name() ];
+
 		return false;
 	}
 
@@ -207,6 +246,17 @@ abstract class Keyring_Service {
 		$all = apply_filters( 'keyring_credentials', get_option( 'keyring_credentials' ) );
 		$all[ $this->get_name() ] = $credentials;
 		return update_option( 'keyring_credentials', $all );
+	}
+
+	/**
+	 * If a service requires some sort of configuration before it can be used (e.g. specifying a key/secret),
+	 * then this method allows you to confirm that that configuration has taken place before attempting to
+	 * use it. You can use it to ::get_credentials() or something and make sure they look valid for example.
+	 * Return a boolean. Default just returns true, meaning "this service is configured correctly and OK to use".
+	 * @return Boolean true if service is configured correctly, false otherwise.
+	 */
+	function is_configured() {
+		return true;
 	}
 
 	function verified( $id, $request_token = null ) {

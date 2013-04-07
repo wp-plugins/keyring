@@ -1,10 +1,10 @@
 === Keyring ===
 
 Contributors: beaulebens, mdawaffe, jshreve, automattic
-Tags: authentication, security, oauth, http basic, key, token, authorization, delicious, facebook, flickr, foursquare, google contacts, instagram, linkedin, tumblr, twitter, yahoo
+Tags: authentication, security, oauth, http basic, key, token, authorization, delicious, facebook, flickr, foursquare, google contacts, instagram, instapaper, linkedin, runkeeper, tripit, tumblr, twitter, yahoo, web services
 Requires at least: 3.3
-Tested up to: 3.5
-Stable Tag: 1.3
+Tested up to: 3.6
+Stable Tag: 1.4
 
 An authentication framework that handles authorization with external web services.
 
@@ -20,7 +20,7 @@ Out of the box, Keyring currently comes with base Service definitions for webser
 * OAuth1
 * OAuth2
 
-And includes an example service implementation (services/extended/example.php) plus specific definitions for:
+And includes an example service implementation (services/extended/example.php) plus ready-to-use definitions for:
 
 * [Delicious](http://delicious.com/)
 * [Facebook](http://facebook.com/)
@@ -43,9 +43,13 @@ You can very easily write your own Service definitions and then use all the powe
 
 1. Install Keyring either via the WordPress.org plugin directory, or by uploading the files to your server
 2. Activate Keyring in Plugins > Installed Plugins
-3. Go to Tools > Keyring to start setting up Services
+3. Go to Tools > Keyring > Add New and you will be prompted to configure services before making user-specific connections to them
 
 == Frequently Asked Questions ==
+
+= How Do I Use Keyring in my Plugin? =
+
+Check out the [Keyring Developer's Guide](http://dentedreality.com.au/projects/wp-keyring/).
 
 = Will Keyring work on my WordPress? =
 
@@ -58,7 +62,7 @@ Your webserver will also need to be able to make outbound HTTPS requests for som
 Most services within Keyring require some sort of API key/secret before you can connect to them.
 
 1. Go to Tools > Keyring > Add New
-2. Click 'Manage' next to one of the services
+2. Click the name of a service in the bottom section, or 'Manage' next to one of the services in the top section
 3. Enter your API details (you will need to get those from the specific service)
 4. Click 'Save Changes'
 5. Now you should be able to create a new connection to that service
@@ -66,8 +70,8 @@ Most services within Keyring require some sort of API key/secret before you can 
 = How do I connect to 'x' service? =
 
 1. Go to Tools > Keyring > Add New
-2. Click the name of the service
-3. Follow through the authentication prompts to connect
+2. Click the name of the service in the top section (if it's in the bottom section, then that service has not been configured for API access yet, see above)
+3. Follow through any authentication prompts to connect
 4. You should now be connected, and your connection details should be listed on the Keyring admin page (which you will be redirected to once authentication is complete)
 
 = Now what? =
@@ -85,6 +89,19 @@ Keyring just provides a framework for handling connections to external services.
 Add files to includes/services/extended/ that either implement one of the includes/services/core/ service foundations, or start from scratch. Follow one of the existing service definitions for a template, and see service.php in the root of Keyring for some detail on methods you need to define, and optional ones that might make your life easier.
 
 == Changelog ==
+= 1.4 =
+* WARNING: BREAKING CHANGES
+* BREAKING: Depending on where you were loading Keyring, the new filtering on 'keyring_admin_url' might require some changes on your end
+* BREAKING: Credentials for Services are handled slightly differently now (especially if you were using constants), so confirm they are loading before rolling out this update
+* Introduce concept of "is_configured()" to Services so that you can test if a service has been set up correctly before attempting to use it
+* Change get_credentials() so that it checks for a service-specific _get_credentials(), then generic constants, then in the DB
+* get_credentials() is now always called when initiating a service, to load its details from the most appropriate place available
+* In the default Admin UI, split services out to show which ones are configured/ready to connect and which ones need attention
+* Add extensive helper instructions to the configuration pages for apps with links to where you need to go to register etc
+* Update Twitter requests to 1.1 endpoint, ready for them retiring v1
+* Keep track of request response codes (Props justinshreve)
+* Start adding some additional information to Keyring::error() for better handling
+
 = 1.3 =
 * Added Service definitions for Instapaper (paid account required) and TripIt
 * Improved access and request token filters

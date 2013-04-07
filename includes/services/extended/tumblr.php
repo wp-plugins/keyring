@@ -12,34 +12,30 @@ class Keyring_Service_Tumblr extends Keyring_Service_OAuth1 {
 		parent::__construct();
 
 		// Enable "basic" UI for entering key/secret
-		if ( ! KEYRING__HEADLESS_MODE )
+		if ( ! KEYRING__HEADLESS_MODE ) {
 			add_action( 'keyring_tumblr_manage_ui', array( $this, 'basic_ui' ) );
+			add_filter( 'keyring_tumblr_basic_ui_intro', array( $this, 'basic_ui_intro' ) );
+		}
 
 		$this->set_endpoint( 'request_token', 'http://www.tumblr.com/oauth/request_token', 'POST' );
 		$this->set_endpoint( 'authorize',     'http://www.tumblr.com/oauth/authorize',     'GET' );
 		$this->set_endpoint( 'access_token',  'http://www.tumblr.com/oauth/access_token',  'POST' );
 
-		if (
-			defined( 'KEYRING__TUMBLR_ID' )
-		&&
-			defined( 'KEYRING__TUMBLR_KEY' )
-		&&
-			defined( 'KEYRING__TUMBLR_SECRET' )
-		) {
-			$this->app_id  = KEYRING__TUMBLR_ID;
-			$this->key     = KEYRING__TUMBLR_KEY;
-			$this->secret  = KEYRING__TUMBLR_SECRET;
-		} else if ( $creds = $this->get_credentials() ) {
-			$this->app_id  = $creds['app_id'];
-			$this->key     = $creds['key'];
-			$this->secret  = $creds['secret'];
-		}
+		$creds = $this->get_credentials();
+		$this->app_id  = $creds['app_id'];
+		$this->key     = $creds['key'];
+		$this->secret  = $creds['secret'];
 
 		$this->consumer = new OAuthConsumer( $this->key, $this->secret, $this->callback_url );
 		$this->signature_method = new OAuthSignatureMethod_HMAC_SHA1;
 
 		$this->authorization_header = true; // Send OAuth token in the header, not querystring
 		$this->authorization_realm = 'tumblr.com';
+	}
+
+	function basic_ui_intro() {
+		echo '<p>' . sprintf( __( "To get started, <a href='http://www.tumblr.com/oauth/register'>register an application with Tumblr</a>. The <strong>Default callback URL</strong> should be set to <code>%s</code>, and you can enter whatever you like in the other fields.", 'keyring' ), Keyring_Util::admin_url( 'tumblr', array( 'action' => 'verify' ) ) ) . '</p>';
+		echo '<p>' . __( "Once you've created your app, copy the <strong>OAuth Consumer Key</strong> into the <strong>API Key</strong> field below. Click the <strong>Show secret key</strong> link, and then copy the <strong>Secret Key</strong> value into the <strong>API Secret</strong> field below. You don't need an App ID value for Tumblr.", 'keyring' ) . '</p>';
 	}
 
 	function parse_response( $response ) {

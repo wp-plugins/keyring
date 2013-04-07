@@ -12,26 +12,19 @@ class Keyring_Service_Facebook extends Keyring_Service_OAuth2 {
 		parent::__construct();
 
 		// Enable "basic" UI for entering key/secret
-		if ( ! KEYRING__HEADLESS_MODE )
+		if ( ! KEYRING__HEADLESS_MODE ) {
 			add_action( 'keyring_facebook_manage_ui', array( $this, 'basic_ui' ) );
+			add_filter( 'keyring_facebook_basic_ui_intro', array( $this, 'basic_ui_intro' ) );
+		}
 
 		$this->set_endpoint( 'authorize',     'https://www.facebook.com/dialog/oauth',        'GET' );
 		$this->set_endpoint( 'access_token', 'https://graph.facebook.com/oauth/access_token', 'GET' );
 		$this->set_endpoint( 'self',         'https://graph.facebook.com/me',                 'GET' );
 
-		if (
-			defined( 'KEYRING__FACEBOOK_ID' )
-		&&
-			defined( 'KEYRING__FACEBOOK_SECRET' )
-		) {
-			$this->app_id  = KEYRING__FACEBOOK_ID;
-			$this->key     = KEYRING__FACEBOOK_ID; // Intentionally duplicated from above
-			$this->secret  = KEYRING__FACEBOOK_SECRET;
-		} else if ( $creds = $this->get_credentials() ) {
-			$this->app_id  = $creds['key'];
-			$this->key     = $creds['key']; // Intentionally duplicated from above
-			$this->secret  = $creds['secret'];
-		}
+		$creds = $this->get_credentials();
+		$this->app_id  = $creds['app_id'];
+		$this->key     = $creds['key'];
+		$this->secret  = $creds['secret'];
 
 		$kr_nonce = wp_create_nonce( 'keyring-verify' );
 		$nonce    = wp_create_nonce( 'keyring-verify-facebook' );
@@ -40,6 +33,48 @@ class Keyring_Service_Facebook extends Keyring_Service_OAuth2 {
 		$this->requires_token( true );
 
 		add_filter( 'keyring_facebook_request_token_params', array( $this, 'filter_request_token' ) );
+	}
+
+	function basic_ui_intro() {
+		echo '<p>' . __( "If you haven't already, you'll need to set up an app on Facebook:", 'keyring' ) . '</p>';
+		echo '<ol>';
+		echo '<li>' . __( "Click <strong>+ Create New App</strong> at the top-right of <a href='https://developers.facebook.com/apps'>this page</a>", 'keyring' ) . '</li>';
+		echo '<li>' . __( "Enter a name for your app (maybe the name of your website?) and click <strong>Continue</strong> (ignore the other settings)", 'keyring' ) . '</li>';
+		echo '<li>' . __( "Enter whatever is in the CAPTCHA and click <strong>Continue</strong>", 'keyring' ) . '</li>';
+		echo '<li>' . sprintf( __( "Put your domain name in the <strong>App Domains</strong> box. That value is probably <code>%s</code>", 'keyring' ), $_SERVER['HTTP_HOST'] ) . '</li>';
+		echo '<li>' . sprintf( __( "Click the <strong>Website with Facebook Login</strong> box and enter the URL to your website, which is probably <code>%s</code>", 'keyring' ), get_bloginfo( 'url' ) ) . '</li>';
+		echo '<li>' . __( "Click <strong>Save Changes</strong>", 'keyring' ) . '</li>';
+		echo '</ol>';
+		echo '<p>' . __( "Once you're done configuring your app, copy and paste your <strong>App ID</strong> and <strong>App Secret</strong> (in the top section of your app's Basic details) into the appropriate fields below. Leave the App Key field blank.", 'keyring' ) . '</p>';
+	}
+
+	function _get_credentials() {
+		if (
+			defined( 'KEYRING__FACEBOOK_ID' )
+		&&
+			defined( 'KEYRING__FACEBOOK_SECRET' )
+		) {
+			return array(
+				'app_id' => constant( 'KEYRING__FACEBOOK_ID' ),
+				'key'    => constant( 'KEYRING__FACEBOOK_ID' ),
+				'secret' => constant( 'KEYRING__FACEBOOK_SECRET' ),
+			);
+		} else {
+			$all = apply_filters( 'keyring_credentials', get_option( 'keyring_credentials' ) );
+			if ( !empty( $all['facebook'] ) ) {
+				$creds = $all['facebook'];
+				$creds['key'] = $creds['app_id'];
+				return $creds;
+			}
+
+			// Return null to allow fall-thru to checking generic constants + DB
+			return null;
+		}
+	}
+
+	function is_configured() {
+		$credentials = $this->get_credentials();
+		return !empty( $credentials['app_id'] ) && !empty( $credentials['secret'] );
 	}
 
 	/**

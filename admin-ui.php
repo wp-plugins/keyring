@@ -100,9 +100,9 @@ class Keyring_Admin_UI {
 			}
 
 			if ( $this->keyring->get_token_store()->delete( array( 'id' => (int) $_REQUEST['token'], 'type' => 'access' ) ) )
-				Keyring::message( __( 'That token has been deleted.', 'keyring' ) );
+				Keyring::message( __( 'That connection has been deleted.', 'keyring' ) );
 			else
-				Keyring::error( __( 'Could not delete that token!', 'keyring' ) );
+				Keyring::message( __( 'Could not delete that connection!', 'keyring' ) );
 		}
 
 		// Set up our defaults
@@ -134,25 +134,53 @@ class Keyring_Admin_UI {
 
 		case 'services' :
 			$this->admin_page_header( 'services' );
-			echo '<p>' . __( 'Click a service to create a new authorized connection:', 'keyring' ) . '</p>';
+
 			$services = $this->keyring->get_registered_services();
 			if ( count( $services ) ) {
-				echo '<ul>';
+				$configured = $not_configured = array();
 				foreach ( $services as $service ) {
-					$request_kr_nonce = wp_create_nonce( 'keyring-request' );
-					$request_nonce = wp_create_nonce( 'keyring-request-' . $service->get_name() );
-					echo '<li><a href="' . esc_url( Keyring_Util::admin_url( $service->get_name(), array( 'action' => 'request', 'kr_nonce' => $request_kr_nonce, 'nonce' => $request_nonce ) ) ) . '">' . esc_html( $service->get_label() ) . '</a>';
+					if ( $service->is_configured() )
+						$configured[] = $service;
+					else
+						$not_configured[] = $service;
+				}
 
-					if ( has_action( 'keyring_' . $service->get_name() . '_manage_ui' ) ) {
+				if ( count( $configured ) ) {
+					echo '<p><strong>' . __( 'Click a service to create a new connection:', 'keyring' ) . '</strong></p>';
+					echo '<ul>';
+					foreach ( $configured as $service ) {
+						$request_kr_nonce = wp_create_nonce( 'keyring-request' );
+						$request_nonce = wp_create_nonce( 'keyring-request-' . $service->get_name() );
+						echo '<li><a href="' . esc_url( Keyring_Util::admin_url( $service->get_name(), array( 'action' => 'request', 'kr_nonce' => $request_kr_nonce, 'nonce' => $request_nonce ) ) ) . '">' . esc_html( $service->get_label() ) . '</a>';
+
+						if ( has_action( 'keyring_' . $service->get_name() . '_manage_ui' ) ) {
+							$manage_kr_nonce = wp_create_nonce( 'keyring-manage' );
+							$manage_nonce = wp_create_nonce( 'keyring-manage-' . $service->get_name() );
+							echo ' (<a href="' . esc_url( Keyring_Util::admin_url( $service->get_name(), array( 'action' => 'manage', 'kr_nonce' => $manage_kr_nonce, 'nonce' => $manage_nonce ) ) ) . '">' . esc_html( __( 'Manage', 'keyring' ) ) . '</a>)';
+						}
+
+						echo '</li>';
+					}
+					echo '</ul><br /><br />';
+				} else {
+					echo '<p>' . __( 'There are no fully-configured services available to connect to.', 'keyring' ) . '</p>';
+				}
+
+				if ( count( $not_configured ) ) {
+					echo '<p>' . __( 'The following services need to be configured correctly before you can connect to them.', 'keyring' ) . '</p>';
+					echo '<ul>';
+					foreach ( $not_configured as $service ) {
+						if ( !has_action( 'keyring_' . $service->get_name() . '_manage_ui' ) )
+							continue;
+
 						$manage_kr_nonce = wp_create_nonce( 'keyring-manage' );
 						$manage_nonce = wp_create_nonce( 'keyring-manage-' . $service->get_name() );
-						echo ' (<a href="' . esc_url( Keyring_Util::admin_url( $service->get_name(), array( 'action' => 'manage', 'kr_nonce' => $manage_kr_nonce, 'nonce' => $manage_nonce ) ) ) . '">' . esc_html( __( 'Manage', 'keyring' ) ) . '</a>)';
+						echo '<li><a href="' . esc_url( Keyring_Util::admin_url( $service->get_name(), array( 'action' => 'manage', 'kr_nonce' => $manage_kr_nonce, 'nonce' => $manage_nonce ) ) ) . '">' . esc_html( $service->get_label() ) . '</a></li>';
 					}
-
-					echo '</li>';
+					echo '</ul>';
 				}
-				echo '</ul>';
 			}
+
 			$this->admin_page_footer();
 			break;
 		}

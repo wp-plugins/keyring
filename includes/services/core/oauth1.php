@@ -41,6 +41,14 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 			require dirname( dirname( dirname( __FILE__ ) ) ) . '/oauth-php/OAuth.php';
 	}
 
+	/**
+	 * OAuth services always require a key and a secret
+	 */
+	function is_configured() {
+		$creds = $this->get_credentials();
+		return !empty( $creds['key'] ) && !empty( $creds['secret'] );
+	}
+
 	function request_token() {
 		Keyring_Util::debug( 'Keyring_Service_OAuth1::request_token()' );
 		if ( !isset( $_REQUEST['nonce'] ) || !wp_verify_nonce( $_REQUEST['nonce'], 'keyring-request-' . $this->get_name() ) ) {
@@ -343,6 +351,7 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 		}
 
 		Keyring_Util::debug( $res );
+		$this->set_request_response_code( wp_remote_retrieve_response_code( $res ) );
 		if ( 200 == wp_remote_retrieve_response_code( $res ) || 201 == wp_remote_retrieve_response_code( $res ) ) {
 			if ( $raw_response )
 				return wp_remote_retrieve_body( $res );

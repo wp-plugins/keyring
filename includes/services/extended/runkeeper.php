@@ -13,8 +13,10 @@ class Keyring_Service_RunKeeper extends Keyring_Service_OAuth2 {
 		parent::__construct();
 
 		// Enable "basic" UI for entering key/secret
-		if ( ! KEYRING__HEADLESS_MODE )
+		if ( ! KEYRING__HEADLESS_MODE ) {
 			add_action( 'keyring_runkeeper_manage_ui', array( $this, 'basic_ui' ) );
+			add_filter( 'keyring_runkeeper_basic_ui_intro', array( $this, 'basic_ui_intro' ) );
+		}
 
 		$this->set_endpoint( 'authorize',    'https://runkeeper.com/apps/authorize',    'GET'  );
 		$this->set_endpoint( 'access_token', 'https://runkeeper.com/apps/token',        'POST' );
@@ -22,27 +24,21 @@ class Keyring_Service_RunKeeper extends Keyring_Service_OAuth2 {
 		$this->set_endpoint( 'user',         'https://api.runkeeper.com/user',          'GET'  );
 		$this->set_endpoint( 'profile',      'https://api.runkeeper.com/profile',       'GET'  );
 
-		if (
-			defined( 'KEYRING__RUNKEEPER_ID' )
-		&&
-			defined( 'KEYRING__RUNKEEPER_KEY' )
-		&&
-			defined( 'KEYRING__RUNKEEPER_SECRET' )
-		) {
-			$this->app_id  = KEYRING__RUNKEEPER_ID;
-			$this->key     = KEYRING__RUNKEEPER_KEY;
-			$this->secret  = KEYRING__RUNKEEPER_SECRET;
-		} else if ( $creds = $this->get_credentials() ) {
-			$this->app_id  = $creds['app_id'];
-			$this->key     = $creds['key'];
-			$this->secret  = $creds['secret'];
-		}
+		$creds = $this->get_credentials();
+		$this->app_id  = $creds['app_id'];
+		$this->key     = $creds['key'];
+		$this->secret  = $creds['secret'];
 
 		$this->consumer = new OAuthConsumer( $this->key, $this->secret, $this->callback_url );
 		$this->signature_method = new OAuthSignatureMethod_HMAC_SHA1;
 
 		$this->authorization_header    = 'Bearer';
 		$this->authorization_parameter = false;
+	}
+
+	function basic_ui_intro() {
+		echo '<p>' . __( "You'll need to <a href='http://runkeeper.com/partner/applications/registerForm'>register a new application</a> on RunKeeper so that you can connect. Be sure to check the <strong>Read Health Information</strong> option under <strong>Permissions Requests</strong> (and explain why you want to read that data). You will also be required to set an <strong>Estimated Date of Publication</strong>.", 'keyring' ) . '</p>';
+		echo '<p>' . __( "Once you've registered your application, click the <strong>Application Keys and URLs</strong> next to it, and copy the <strong>Client ID</strong> into the <strong>API Key</strong> field below, and the <strong>Client Secret</strong> value into <strong>API Secret</strong>.", 'keyring' ) . '</p>';
 	}
 
 	function build_token_meta( $token ) {

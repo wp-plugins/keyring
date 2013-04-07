@@ -93,6 +93,15 @@ class Keyring_Service_OAuth2 extends Keyring_Service_OAuth1 {
 			return false;
 		}
 
+		$error_debug_info = array();
+
+		if ( !empty( $keyring_request_token->meta['blog_id'] ) && !empty( $keyring_request_token->meta['user_id'] ) ) {
+			$error_debug_info = array(
+				'blog_id' => $keyring_request_token->meta['blog_id'],
+				'user_id' => $keyring_request_token->meta['user_id']
+			);
+		}
+
 		// Remove request token, don't need it any more.
 		$this->store->delete( array( 'id' => $state, 'type' => 'request' ) );
 
@@ -139,7 +148,8 @@ class Keyring_Service_OAuth2 extends Keyring_Service_OAuth1 {
 			exit;
 		}
 		Keyring::error(
-			sprintf( __( 'There was a problem authorizing with %s. Please try again in a moment.', 'keyring' ), $this->get_label() )
+			sprintf( __( 'There was a problem authorizing with %s. Please try again in a moment.', 'keyring' ), $this->get_label() ),
+			$error_debug_info
 		);
 		return false;
 	}
@@ -214,6 +224,7 @@ class Keyring_Service_OAuth2 extends Keyring_Service_OAuth1 {
 		Keyring_Util::debug( 'OAuth2 Response' );
 		Keyring_Util::debug( $res );
 
+		$this->set_request_response_code( wp_remote_retrieve_response_code( $res ) );
 		if ( 200 == wp_remote_retrieve_response_code( $res ) || 201 == wp_remote_retrieve_response_code( $res ) )
 			if ( $raw_response )
 				return wp_remote_retrieve_body( $res );

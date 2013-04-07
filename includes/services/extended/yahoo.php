@@ -12,55 +12,31 @@ class Keyring_Service_Yahoo extends Keyring_Service_OAuth1 {
 		parent::__construct();
 
 		// Enable "basic" UI for entering key/secret
-		if ( ! KEYRING__HEADLESS_MODE )
+		if ( ! KEYRING__HEADLESS_MODE ) {
 			add_action( 'keyring_yahoo_manage_ui', array( $this, 'basic_ui' ) );
+			add_filter( 'keyring_yahoo_basic_ui_intro', array( $this, 'basic_ui_intro' ) );
+		}
 
 		$this->set_endpoint( 'request_token', 'https://api.login.yahoo.com/oauth/v2/get_request_token', 'GET' );
 		$this->set_endpoint( 'authorize',     'https://api.login.yahoo.com/oauth/v2/request_auth',      'GET' );
 		$this->set_endpoint( 'access_token',  'https://api.login.yahoo.com/oauth/v2/get_token',         'POST' );
 
-		if (
-			defined( 'KEYRING__YAHOO_ID' )
-		&&
-			defined( 'KEYRING__YAHOO_KEY' )
-		&&
-			defined( 'KEYRING__YAHOO_SECRET' )
-		) {
-			$this->app_id  = KEYRING__YAHOO_ID;
-			$this->key     = KEYRING__YAHOO_KEY;
-			$this->secret  = KEYRING__YAHOO_SECRET;
-		} else if ( $creds = $this->get_credentials() ) {
-			$this->app_id  = $creds['app_id'];
-			$this->key     = $creds['key'];
-			$this->secret  = $creds['secret'];
-		}
+		$creds = $this->get_credentials();
+		$this->app_id  = $creds['app_id'];
+		$this->key     = $creds['key'];
+		$this->secret  = $creds['secret'];
 
 		$this->consumer = new OAuthConsumer( $this->key, $this->secret, $this->callback_url );
 		$this->signature_method = new OAuthSignatureMethod_HMAC_SHA1;
 	}
 
-	function parse_response( $response ) {
-		return json_decode( $response );
+	function basic_ui_intro() {
+		echo '<p>' . sprintf( __( "To connect to Yahoo!, you need to <a href='https://developer.apps.yahoo.com/dashboard/createKey.html'>Create a new project</a>. Make sure you set the <strong>Access Scope</strong> to <strong>This app requires access to private user data</strong>. When you select that, you will be asked for an <strong>Application Domain</strong>, which should probably be set to <code>http://%s</code>. Which APIs you request access for will depend on how Keyring will be used on this site. Common ones will be <strong>Contacts</strong>, <strong>Social Directory</strong>, <strong>Status</strong>, and <strong>Updates</strong>.", 'keyring' ), $_SERVER['HTTP_HOST'] ) . '</p>';
+		echo '<p>' . __( "Once you've created your project, copy and paste your <strong>Consumer key</strong> and <strong>Consumer secret</strong> (from under the <strong>Authentication Information: OAuth</strong> section of your app's details) into the boxes below. You don't need an App ID for Yahoo!.", 'keyring' ) . '</p>';
 	}
 
-	function custom_token_object( $token_object, $token ) {
-		$token_object->guid          = $token['xoauth_yahoo_guid'];
-		$token_object->consumer      = $this->key;
-		$token_object->sessionHandle = $token['oauth_session_handle'];
-
-		$now = time();
-
-		if( !empty( $token['oauth_expires_in'] ) )
-			$token_object->tokenExpires = $now + $token["oauth_expires_in"];
-		else
-			$token_object->tokenExpires = -1;
-
-		if ( !empty( $token['oauth_authorization_expires_in'] ) )
-			$token_object->handleExpires = $now + $token["oauth_authorization_expires_in"];
-		else
-			$token_object->handleExpires = -1;
-
-		return $token_object;
+	function parse_response( $response ) {
+		return json_decode( $response );
 	}
 
 	function build_token_meta( $token ) {
@@ -98,6 +74,8 @@ class Keyring_Service_Yahoo extends Keyring_Service_OAuth1 {
 	}
 
 	function test_connection() {
+		$this->maybe_refresh_token();
+
 		$guid = $this->token->get_meta( 'external_id' );
 
 		$res = $this->request( 'http://social.yahooapis.com/v1/user/' . $guid . '/profile?format=json' );
@@ -105,6 +83,52 @@ class Keyring_Service_Yahoo extends Keyring_Service_OAuth1 {
 			return true;
 
 		return $res;
+	}
+
+	function maybe_refresh_token() {
+		global $wpdb;
+
+		if ( empty( $this->token->token ) || empty( $this->token->token->tokenExpires ) )
+			return;
+
+		if ( $this->token->token->tokenExpires && $this->token->token->tokenExpires < time() ) {
+			$api_url  = 'https://api.login.yahoo.com/oauth/v2/get_token';
+			$api_url .= '?oauth_session_handle=' . $this->token->token->sessionHandle;
+
+			$refresh = $this->request( $api_url, array(
+				'method'       => 'GET',
+				'raw_response' => true,
+			) );
+
+			if ( !Keyring_Util::is_error( $refresh ) ) {
+				$token = $this->parse_access_token( $refresh );
+
+				// Fake request token
+				global $keyring_request_token;
+				$keyring_request_token = new Keyring_Request_Token(
+					$this->get_name(),
+					array()
+				);
+
+				// Build (real) access token
+				$access_token = new Keyring_Access_Token(
+					$this->get_name(),
+					new OAuthToken(
+						$token['oauth_token'],
+						$token['oauth_token_secret']
+					),
+					$this->build_token_meta( $token ),
+					$this->token->unique_id
+				);
+
+				// Store the updated access token
+				$access_token = apply_filters( 'keyring_access_token', $access_token, $token );
+				$id = $this->store->update( $access_token );
+
+				// And switch to using it
+				$this->set_token( $access_token );
+			}
+		}
 	}
 }
 
