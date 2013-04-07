@@ -10,6 +10,10 @@ class Keyring_Service_Delicious extends Keyring_Service_HTTP_Basic {
 		$this->requires_token( true );
 	}
 
+	function _get_credentials() {
+		return false;
+	}
+
 	function parse_response( $data ) {
 		return simplexml_load_string( $data );
 	}

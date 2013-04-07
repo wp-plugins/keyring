@@ -67,7 +67,7 @@ class Keyring_Service_HTTP_Basic extends Keyring_Service {
 		echo apply_filters( 'keyring_' . $this->get_name() . '_request_ui_intro', '' );
 
 		// Output basic form for collecting user/pass
-		echo '<p>' . sprintf( __( 'Enter your username and password for accessing %s:', 'keyring' ), $this->get_label() ) . '</p>';
+		echo '<p>' . sprintf( __( 'Enter your username and password for accessing <strong>%s</strong>:', 'keyring' ), $this->get_label() ) . '</p>';
 		echo '<form method="post" action="">';
 		echo '<input type="hidden" name="service" value="' . esc_attr( $this->get_name() ) . '" />';
 		echo '<input type="hidden" name="action" value="verify" />';
@@ -82,7 +82,7 @@ class Keyring_Service_HTTP_Basic extends Keyring_Service {
 		echo '</table>';
 		echo '<p class="submitbox">';
 		echo '<input type="submit" name="submit" value="' . __( 'Verify Details', 'keyring' ) . '" id="submit" class="button-primary">';
-		echo '<a href="' . esc_url( Keyring_Util::admin_url() ) . '" class="submitdelete" style="margin-left:2em;">' . __( 'Cancel', 'keyring' ) . '</a>';
+		echo '<a href="' . esc_url( $_SERVER['HTTP_REFERER'] ) . '" class="submitdelete" style="margin-left:2em;">' . __( 'Cancel', 'keyring' ) . '</a>';
 		echo '</p>';
 		echo '</form>';
 		echo '</div>';
@@ -107,12 +107,12 @@ class Keyring_Service_HTTP_Basic extends Keyring_Service {
 		if ( $_REQUEST['state'] ) {
 			global $keyring_request_token;
 			$state = (int) $_REQUEST['state'];
-			$keyring_request_token = $this->store->get_token( array( 'id' => $state ) );
+			$keyring_request_token = $this->store->get_token( array( 'id' => $state, 'type' => 'request' ) );
 			Keyring_Util::debug( 'HTTP Basic Loaded Request Token ' . $_REQUEST['state'] );
 			Keyring_Util::debug( $keyring_request_token );
 
 			// Remove request token, don't need it any more.
-			$this->store->delete( array( 'id' => $state ) );
+			$this->store->delete( array( 'id' => $state, 'type' => 'request' ) );
 		}
 
 		if ( !strlen( $_POST['username'] ) ) {
@@ -161,11 +161,11 @@ class Keyring_Service_HTTP_Basic extends Keyring_Service {
 			$token,
 			$meta
 		);
-		$access_token = apply_filters( 'keyring_access_token', $access_token );
+		$access_token = apply_filters( 'keyring_access_token', $access_token, array() );
 
 		// If we didn't get a 401, then we'll assume it's OK
 		$id = $this->store_token( $access_token );
-		$this->verified( $id, false );
+		$this->verified( $id, $keyring_request_token );
 	}
 
 	function request( $url, array $params = array() ) {
@@ -205,7 +205,7 @@ class Keyring_Service_HTTP_Basic extends Keyring_Service {
 		}
 
 		Keyring_Util::debug( $res );
-
+		$this->set_request_response_code( wp_remote_retrieve_response_code( $res ) );
 		if ( 200 == wp_remote_retrieve_response_code( $res ) || 201 == wp_remote_retrieve_response_code( $res ) ) {
 			if ( $raw_response )
 				return wp_remote_retrieve_body( $res );
