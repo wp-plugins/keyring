@@ -4,7 +4,7 @@ Contributors: beaulebens, mdawaffe, jshreve, automattic
 Tags: authentication, security, oauth, http basic, key, token, authorization, delicious, facebook, flickr, foursquare, google contacts, instagram, instapaper, linkedin, runkeeper, tripit, tumblr, twitter, yahoo, web services
 Requires at least: 3.3
 Tested up to: 3.6
-Stable Tag: 1.4
+Stable Tag: 1.5
 
 An authentication framework that handles authorization with external web services.
 
@@ -30,6 +30,7 @@ And includes an example service implementation (services/extended/example.php) p
 * [Instagram](http://instagram.com/)
 * [Instapaper](http://instapaper.com/)
 * [LinkedIn](http://linkedin.com/)
+* [Moves](http://moves-app.com/)
 * [RunKeeper](http://runkeeper.com/)
 * [TripIt](http://tripit.com/)
 * [Tumblr](http://tumblr.com/)
@@ -50,6 +51,8 @@ You can very easily write your own Service definitions and then use all the powe
 = How Do I Use Keyring in my Plugin? =
 
 Check out the [Keyring Developer's Guide](http://dentedreality.com.au/projects/wp-keyring/).
+
+See [Keyring Social Importers](http://wordpress.org/plugins/keyring-social-importers/) for an example. You can also extend Keyring Service classes directly, rather than attaching the service as a property to an object (like the Importers do).
 
 = Will Keyring work on my WordPress? =
 
@@ -89,6 +92,11 @@ Keyring just provides a framework for handling connections to external services.
 Add files to includes/services/extended/ that either implement one of the includes/services/core/ service foundations, or start from scratch. Follow one of the existing service definitions for a template, and see service.php in the root of Keyring for some detail on methods you need to define, and optional ones that might make your life easier.
 
 == Changelog ==
+= 1.5 =
+* Enhancement: Added Moves as a service
+* Bugfix: OAuth2 services were having querystring parameters stripped during POST requests. No longer doing that.
+* Bugfix: typo in profile request for RunKeeper service
+
 = 1.4 =
 * WARNING: BREAKING CHANGES
 * BREAKING: Depending on where you were loading Keyring, the new filtering on 'keyring_admin_url' might require some changes on your end
