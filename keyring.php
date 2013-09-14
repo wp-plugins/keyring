@@ -3,7 +3,7 @@
 Plugin Name: Keyring
 Plugin URI: http://dentedreality.com.au/projects/wp-keyring/
 Description: Keyring helps you manage your keys. It provides a generic, very hookable framework for connecting to remote systems and managing your access tokens, username/password combos etc for those services. On its own it doesn't do much, but it enables other plugins to do things that require authorization to act on your behalf.
-Version: 1.2alpha
+Version: 1.5
 Author: Beau Lebens
 Author URI: http://dentedreality.com.au
 */
@@ -25,7 +25,7 @@ define( 'KEYRING__DEBUG_WARN',   2 );
 define( 'KEYRING__DEBUG_ERROR',  3 );
 
 // Indicates Keyring is installed/active so that other plugins can detect it
-define( 'KEYRING__VERSION', 1.2 );
+define( 'KEYRING__VERSION', 1.5 );
 
 /**
  * Core Keyring class that handles UI and the general flow of requesting access tokens etc
@@ -44,6 +44,10 @@ class Keyring {
 		if ( ! KEYRING__HEADLESS_MODE ) {
 			require_once dirname( __FILE__ ) . '/admin-ui.php';
 			Keyring_Admin_UI::init();
+
+			add_filter( 'keyring_admin_url', function( $url ) {
+				return admin_url( 'tools.php?page=' . Keyring::init()->admin_page );
+			} );
 		}
 
 		// This is used internally to create URLs, and also to know when to
@@ -51,19 +55,30 @@ class Keyring {
 		$this->admin_page = apply_filters( 'keyring_admin_page', 'keyring' );
 	}
 
-	static function &init() {
+	static function &init( $force_load = false ) {
 		static $instance = false;
 
 		if ( !$instance ) {
 			if ( ! KEYRING__HEADLESS_MODE )
 				load_plugin_textdomain( 'keyring', false, dirname( plugin_basename( __FILE__ ) ) . '/languages/' );
 			$instance = new Keyring;
+
+			// Keyring is being loaded 'late', so we need to do some extra set-up
+			if ( did_action( 'init' ) || $force_load ) {
+				$instance->plugins_loaded();
+				do_action( 'keyring_load_services' );
+			}
+		} else {
+			if ( $force_load ) {
+				$instance->plugins_loaded();
+				do_action( 'keyring_load_services' );
+			}
 		}
 
 		return $instance;
 	}
 
-	function plugins_loaded() {
+	static function plugins_loaded() {
 		// Load stores early so we can confirm they're loaded correctly
 		require_once dirname( __FILE__ ) . '/store.php';
 		do_action( 'keyring_load_token_stores' );
@@ -95,7 +110,7 @@ class Keyring {
 	 * here for almost everything Keyring does, so you can use it to intercept
 	 * almost everything. Based entirely on $_REQUEST[page|action|service]
 	 */
-	function request_handlers() {
+	static function request_handlers() {
 		global $current_user;
 
 		if ( defined( 'KEYRING__FORCE_USER' ) && KEYRING__FORCE_USER && in_array( $_REQUEST['action'], array( 'request', 'verify' ) ) ) {
@@ -105,8 +120,6 @@ class Keyring {
 		}
 
 		if (
-				( isset( $_REQUEST['page'] ) && Keyring::init()->admin_page == $_REQUEST['page'] )
-			&&
 				!empty( $_REQUEST['action'] )
 			&&
 				in_array( $_REQUEST['action'], apply_filters( 'keyring_core_actions', array( 'request', 'verify', 'created', 'delete', 'manage' ) ) )
@@ -178,7 +191,9 @@ class Keyring {
 	static function error( $str, $info = array() ) {
 		$keyring = Keyring::init();
 		$keyring->errors[] = $str;
-		do_action( 'keyring_error', $str, $info, $this );
+		do_action( 'keyring_error', $str, $info, isset( $this ) ? $this : null );
+		wp_die( $str, __( 'Keyring Error', 'keyring' ) );
+		exit;
 	}
 
 	function has_errors() {
@@ -236,7 +251,7 @@ class Keyring_Util {
 	 * @return URL to Keyring admin UI (main listing, or specific service verify process)
 	 */
 	static function admin_url( $service = false, $params = array() ) {
-		$url = apply_filters( 'keyring_admin_url', admin_url( 'tools.php?page=' . Keyring::init()->admin_page ) );
+		$url = apply_filters( 'keyring_admin_url', admin_url( '' ) );
 
 		if ( $service )
 			$url = add_query_arg( array( 'service' => $service ), $url );
@@ -269,7 +284,7 @@ class Keyring_Util {
 	static function token_select_box( $tokens, $name, $create = false ) {
 		?><select name="<?php echo esc_attr( $name ); ?>" id="<?php echo esc_attr( $name ); ?>">
 		<?php if ( $create ) : ?>
-			<option value="new"><?php _e( 'Create a new connection&hellips;', 'keyring' ); ?></option>
+			<option value="new"><?php _e( 'Create a new connection&hellip;', 'keyring' ); ?></option>
 		<?php endif; ?>
 		<?php foreach ( (array) $tokens as $token ) : ?>
 			<option value="<?php echo $token->get_uniq_id(); ?>"><?php echo $token->get_display(); ?></option>

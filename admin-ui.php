@@ -99,10 +99,10 @@ class Keyring_Admin_UI {
 				exit;
 			}
 
-			if ( $this->keyring->get_token_store()->delete( array( 'id' => (int) $_REQUEST['token'] ) ) )
-				Keyring::message( __( 'That token has been deleted.', 'keyring' ) );
+			if ( $this->keyring->get_token_store()->delete( array( 'id' => (int) $_REQUEST['token'], 'type' => 'access' ) ) )
+				Keyring::message( __( 'That connection has been deleted.', 'keyring' ) );
 			else
-				Keyring::error( __( 'Could not delete that token!', 'keyring' ) );
+				Keyring::message( __( 'Could not delete that connection!', 'keyring' ) );
 		}
 
 		// Set up our defaults
@@ -125,46 +125,133 @@ class Keyring_Admin_UI {
 		switch ( $action ) {
 		case 'tokens' :
 			$this->admin_page_header( 'tokens' );
-			$tokens = $this->keyring->get_token_store()->get_tokens();
-			if ( count( $tokens ) ) {
-				echo '<ul>';
-				foreach ( $tokens as $token ) {
-					$kr_nonce = wp_create_nonce( 'keyring-delete' );
-					$delete_nonce = wp_create_nonce( 'keyring-delete-' . $token->get_service()->get_name() . '-' . $token->get_uniq_id() );
-					echo '<li><strong>' . esc_html( $token->get_display() ) . '</strong> (' . esc_html( $token->get_service()->get_label() ) . ') ';
-					echo '[<a href="' . Keyring_Util::admin_url( false, array( 'action' => 'delete', 'service' => $token->get_service()->get_name(), 'token' => $token->get_uniq_id(), 'kr_nonce' => $kr_nonce, 'nonce' => $delete_nonce ) ) . '" title="' . esc_attr( __( 'Delete', 'keyring' ) ) . '">&times;</a>]';
-					echo '<br /><pre>' . print_r( $token->get_meta(), true ) . '</pre></li>';
-				}
-				echo '</ul>';
-			} else {
-				echo '<p>' . sprintf( __( 'You haven\'t created any secure connections yet. <a href="%s">Create a connection</a>.', 'keyring' ), esc_url( Keyring_Util::admin_url( false, array( 'action' => 'services' ) ) ) ) . '</p>';
-			}
+
+			$list_table = new Keyring_Connections_List_Table();
+			$list_table->display();
+
 			$this->admin_page_footer();
 			break;
 
 		case 'services' :
 			$this->admin_page_header( 'services' );
-			echo '<p>' . __( 'Click a service to create a new authorized connection:', 'keyring' ) . '</p>';
+
 			$services = $this->keyring->get_registered_services();
 			if ( count( $services ) ) {
-				echo '<ul>';
+				$configured = $not_configured = array();
 				foreach ( $services as $service ) {
-					$request_kr_nonce = wp_create_nonce( 'keyring-request' );
-					$request_nonce = wp_create_nonce( 'keyring-request-' . $service->get_name() );
-					echo '<li><a href="' . esc_url( Keyring_Util::admin_url( $service->get_name(), array( 'action' => 'request', 'kr_nonce' => $request_kr_nonce, 'nonce' => $request_nonce ) ) ) . '">' . esc_html( $service->get_label() ) . '</a>';
+					if ( $service->is_configured() )
+						$configured[] = $service;
+					else
+						$not_configured[] = $service;
+				}
 
-					if ( has_action( 'keyring_' . $service->get_name() . '_manage_ui' ) ) {
+				if ( count( $configured ) ) {
+					echo '<p><strong>' . __( 'Click a service to create a new connection:', 'keyring' ) . '</strong></p>';
+					echo '<ul>';
+					foreach ( $configured as $service ) {
+						$request_kr_nonce = wp_create_nonce( 'keyring-request' );
+						$request_nonce = wp_create_nonce( 'keyring-request-' . $service->get_name() );
+						echo '<li><a href="' . esc_url( Keyring_Util::admin_url( $service->get_name(), array( 'action' => 'request', 'kr_nonce' => $request_kr_nonce, 'nonce' => $request_nonce ) ) ) . '">' . esc_html( $service->get_label() ) . '</a>';
+
+						if ( has_action( 'keyring_' . $service->get_name() . '_manage_ui' ) ) {
+							$manage_kr_nonce = wp_create_nonce( 'keyring-manage' );
+							$manage_nonce = wp_create_nonce( 'keyring-manage-' . $service->get_name() );
+							echo ' (<a href="' . esc_url( Keyring_Util::admin_url( $service->get_name(), array( 'action' => 'manage', 'kr_nonce' => $manage_kr_nonce, 'nonce' => $manage_nonce ) ) ) . '">' . esc_html( __( 'Manage', 'keyring' ) ) . '</a>)';
+						}
+
+						echo '</li>';
+					}
+					echo '</ul><br /><br />';
+				} else {
+					echo '<p>' . __( 'There are no fully-configured services available to connect to.', 'keyring' ) . '</p>';
+				}
+
+				if ( count( $not_configured ) ) {
+					echo '<p>' . __( 'The following services need to be configured correctly before you can connect to them.', 'keyring' ) . '</p>';
+					echo '<ul>';
+					foreach ( $not_configured as $service ) {
+						if ( !has_action( 'keyring_' . $service->get_name() . '_manage_ui' ) )
+							continue;
+
 						$manage_kr_nonce = wp_create_nonce( 'keyring-manage' );
 						$manage_nonce = wp_create_nonce( 'keyring-manage-' . $service->get_name() );
-						echo ' (<a href="' . esc_url( Keyring_Util::admin_url( $service->get_name(), array( 'action' => 'manage', 'kr_nonce' => $manage_kr_nonce, 'nonce' => $manage_nonce ) ) ) . '">' . esc_html( __( 'Manage', 'keyring' ) ) . '</a>)';
+						echo '<li><a href="' . esc_url( Keyring_Util::admin_url( $service->get_name(), array( 'action' => 'manage', 'kr_nonce' => $manage_kr_nonce, 'nonce' => $manage_nonce ) ) ) . '">' . esc_html( $service->get_label() ) . '</a></li>';
 					}
-
-					echo '</li>';
+					echo '</ul>';
 				}
-				echo '</ul>';
 			}
+
 			$this->admin_page_footer();
 			break;
 		}
+	}
+}
+
+/** WordPress List Table Administration API and base class */
+require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
+
+class Keyring_Connections_List_Table extends WP_List_Table {
+	var $keyring = false;
+	function __construct() {
+		$this->keyring = Keyring::init();
+
+		parent::__construct( array(
+			'singular' => 'connection',
+			'plural'   => 'connections',
+			'screen'   => $this->keyring->admin_page,
+		) );
+
+		$this->items = Keyring::get_token_store()->get_tokens();
+	}
+
+	function no_items() {
+		echo '<p>' . sprintf( __( 'You haven\'t added any connections yet. <a href="%s">Add a New Connection</a>.', 'keyring' ), esc_url( Keyring_Util::admin_url( false, array( 'action' => 'services' ) ) ) ) . '</p>';
+	}
+
+	function get_columns() {
+		return array(
+			'service'  => __( 'Service', 'keyring' ),
+			'avatar'   => __( 'Avatar', 'keyring' ),
+			'id'       => __( 'External ID', 'keyring' ),
+			'name'     => __( 'Name', 'keyring' ),
+			'actions'  => '&nbsp;'
+		);
+	}
+
+	function column_service( $row ) {
+		echo $row->get_service()->get_label();
+	}
+
+	function column_avatar( $row ) {
+		$picture = $row->get_meta( 'picture' );
+		if ( $picture ) {
+			echo '<img src="' . esc_attr( $picture ) . '" width="40" height="40" border="1" alt="' . __( 'Avatar', 'keyring' ) . '" />';
+		} else {
+			echo '-';
+		}
+	}
+
+	function column_id( $row ) {
+		echo $row->get_meta( 'user_id' );
+	}
+
+	function column_name( $row ) {
+		// Make a few attempts to get something to display here
+		$name = $row->get_meta( 'name' );
+		if ( !$name )
+			$name = $row->get_meta( 'username' );
+		if ( !$name )
+			$name = trim( $row->get_meta( 'first_name' ) . ' ' . $row->get_meta( 'last_name' ) );
+
+		if ( $name )
+			echo $name;
+		else
+			echo '-';
+	}
+
+	function column_actions( $row ) {
+		$kr_nonce = wp_create_nonce( 'keyring-delete' );
+		$delete_nonce = wp_create_nonce( 'keyring-delete-' . $row->get_service()->get_name() . '-' . $row->get_uniq_id() );
+		echo '<a href="' . Keyring_Util::admin_url( false, array( 'action' => 'delete', 'service' => $row->get_service()->get_name(), 'token' => $row->get_uniq_id(), 'kr_nonce' => $kr_nonce, 'nonce' => $delete_nonce ) ) . '" title="' . esc_attr( __( 'Delete', 'keyring' ) ) . '" class="delete">Delete</a>';
 	}
 }

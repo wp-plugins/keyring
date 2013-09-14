@@ -41,6 +41,14 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 			require dirname( dirname( dirname( __FILE__ ) ) ) . '/oauth-php/OAuth.php';
 	}
 
+	/**
+	 * OAuth services always require a key and a secret
+	 */
+	function is_configured() {
+		$creds = $this->get_credentials();
+		return !empty( $creds['key'] ) && !empty( $creds['secret'] );
+	}
+
 	function request_token() {
 		Keyring_Util::debug( 'Keyring_Service_OAuth1::request_token()' );
 		if ( !isset( $_REQUEST['nonce'] ) || !wp_verify_nonce( $_REQUEST['nonce'], 'keyring-request-' . $this->get_name() ) ) {
@@ -61,7 +69,8 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 					'blog_id' => get_current_blog_id(),
 				),
 				$this->get_name(),
-				array() // no token
+				array(), // no token
+				$this
 			)
 		);
 		$request_token     = apply_filters( 'keyring_request_token', $request_token, $this );
@@ -127,7 +136,6 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 			// Get the values returned from the remote service
 			$token = wp_remote_retrieve_body( $res );
 			parse_str( trim( $token ), $token );
-
 			Keyring_Util::debug( 'OAuth1 Token Response' );
 			Keyring_Util::debug( $token );
 
@@ -149,11 +157,12 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 					'keyring_request_token_meta',
 					$meta,
 					$this->get_name(),
-					$token
+					$token,
+					$this
 				),
 				$request_token_id // Overwrite the previous one
 			);
-			$request_token = apply_filters( 'keyring_request_token', $request_token );
+			$request_token = apply_filters( 'keyring_request_token', $request_token, $this );
 			$this->store->update( $request_token );
 		} else {
 			Keyring::error(
@@ -195,14 +204,14 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 		if ( isset( $_GET['state'] ) ) {
 			global $keyring_request_token;
 			$state = (int) $_GET['state'];
-			$keyring_request_token = $this->store->get_token( array( 'id' => $state ) );
+			$keyring_request_token = $this->store->get_token( array( 'id' => $state, 'type' => 'request' ) );
 			Keyring_Util::debug( 'OAuth1 Loaded Request Token ' . $_GET['state'] );
 			Keyring_Util::debug( $keyring_request_token );
 
 			$secret = $keyring_request_token->token['oauth_token_secret'];
 
 			// Remove request token, don't need it any more.
-			$this->store->delete( array( 'id' => $state ) );
+			$this->store->delete( array( 'id' => $state, 'type' => 'request' ) );
 		}
 
 		// Get an access token, using the temporary token passed back
@@ -230,7 +239,7 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 				),
 				$this->build_token_meta( $token )
 			);
-			$access_token = apply_filters( 'keyring_access_token', $access_token );
+			$access_token = apply_filters( 'keyring_access_token', $access_token, $token );
 
 			Keyring_Util::debug( 'OAuth1 Access Token for storage' );
 			Keyring_Util::debug( $access_token );
@@ -247,7 +256,7 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 
 	function request( $url, array $params = array() ) {
 		if ( $this->requires_token() && empty( $this->token ) )
-			return new Keyring_Error( 'keyring-request-error', __( 'No token' ) );
+			return new Keyring_Error( 'keyring-request-error', __( 'No token', 'keyring' ) );
 
 		$raw_response = false;
 		if ( isset( $params['raw_response'] ) ) {
@@ -275,7 +284,7 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 		if ( isset( $params['body'] ) && $sign_parameters ) {
 			if ( is_string( $params['body'] ) ) {
 				wp_parse_str( $params['body'], $sign_vars );
-			} elseif ( is_array( $params['body'] ) ) {
+			} else if ( is_array( $params['body'] ) ) {
 				$sign_vars = $params['body'];
 			}
 		}
@@ -298,6 +307,11 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 			$header = $req->to_header( $this->authorization_realm ); // Gives a complete header string, not just the second half
 			$bits = explode( ': ', $header, 2 );
 			$params['headers']['Authorization'] = $bits[1];
+
+			// This hack was introduced for Instapaper (http://stackoverflow.com/a/9645033/1507683), which is overly strict on
+			// header formatting, but it doesn't seem to cause problems anywhere else.
+			$params['headers']['Authorization'] = str_replace( '",', '", ', $params['headers']['Authorization'] );
+
 			Keyring_Util::debug( 'OAuth1 Authorization Header' );
 			Keyring_Util::debug( $params['headers']['Authorization'] );
 
@@ -337,6 +351,7 @@ class Keyring_Service_OAuth1 extends Keyring_Service {
 		}
 
 		Keyring_Util::debug( $res );
+		$this->set_request_response_code( wp_remote_retrieve_response_code( $res ) );
 		if ( 200 == wp_remote_retrieve_response_code( $res ) || 201 == wp_remote_retrieve_response_code( $res ) ) {
 			if ( $raw_response )
 				return wp_remote_retrieve_body( $res );
