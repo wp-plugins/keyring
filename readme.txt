@@ -4,7 +4,7 @@ Contributors: beaulebens, mdawaffe, jshreve, automattic
 Tags: authentication, security, oauth, http basic, key, token, authorization, delicious, facebook, flickr, foursquare, google contacts, instagram, instapaper, linkedin, runkeeper, tripit, tumblr, twitter, yahoo, web services
 Requires at least: 3.3
 Tested up to: 3.6
-Stable Tag: 1.5
+Stable Tag: 1.5.1
 
 An authentication framework that handles authorization with external web services.
 
@@ -92,6 +92,9 @@ Keyring just provides a framework for handling connections to external services.
 Add files to includes/services/extended/ that either implement one of the includes/services/core/ service foundations, or start from scratch. Follow one of the existing service definitions for a template, and see service.php in the root of Keyring for some detail on methods you need to define, and optional ones that might make your life easier.
 
 == Changelog ==
+= 1.5.1 =
+* Remove example OAuth application included within that library. Unnecessary and contains an XSS vulnerability.
+
 = 1.5 =
 * Enhancement: Added Moves as a service
 * Bugfix: OAuth2 services were having querystring parameters stripped during POST requests. No longer doing that.
