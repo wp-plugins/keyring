@@ -1,10 +1,10 @@
 === Keyring ===
 
 Contributors: beaulebens, mdawaffe, jshreve, automattic
-Tags: authentication, security, oauth, http basic, key, token, authorization, delicious, facebook, flickr, foursquare, google contacts, instagram, instapaper, linkedin, runkeeper, tripit, tumblr, twitter, yahoo, web services
+Tags: authentication, security, oauth, http basic, key, token, authorization, delicious, facebook, flickr, foursquare, google contacts, instagram, instapaper, linkedin, moves, runkeeper, tripit, tumblr, twitter, yahoo, web services
 Requires at least: 3.3
-Tested up to: 3.6
-Stable Tag: 1.5.1
+Tested up to: 3.9
+Stable Tag: 1.6
 
 An authentication framework that handles authorization with external web services.
 
@@ -92,6 +92,23 @@ Keyring just provides a framework for handling connections to external services.
 Add files to includes/services/extended/ that either implement one of the includes/services/core/ service foundations, or start from scratch. Follow one of the existing service definitions for a template, and see service.php in the root of Keyring for some detail on methods you need to define, and optional ones that might make your life easier.
 
 == Changelog ==
+= 1.6 =
+* Enhancement BREAKING: Change the way the keyring_admin_url filter is applied so that it's already got all the parameters etc added to it by the time the filter happens. Makes that filter much more flexible. You probably need to add $params to your filter function, and the add_query_arg() those params onto whatever URL you're returning.
+* Bugfix WARNING: Change the filters in get_credentials() to keyring_service_credentials, since keyring_credentials is in use, and slightly different
+* Enhancement: Allow the token store to be filtered, for divergent implementations on a single installation, props Jamie P
+* Enhancement: Allow filtering of request scope for OAuth1 services
+* Enhancement: Add connection-testing to the default admin UI for most services
+* Enhancement: Abstract out prepare_request() for OAuth1 service
+* Bugfix: Use the correct parameters for filtering results in SingleStore, props Milan D
+* Bugfix: Request correct permissions for LinkedIn, using the new filter
+* Bugfix: Get Google Contacts working properly. Props Simon W for spotting 2 errors.
+* Bugfix: Update authorize/authenticate URL for LinkedIn. Should move entire service to OAuth2 ideally
+* Bugfix: Don't restrict the 'state' parameter to being an int only (per OAuth2 spec), props Jamie P
+* Bugfix: Ensure to always filter the return value (even if false) from get_credentials(), props Jamie P
+* Bugfix: Fix the Moves service so that it can get past the auth flow again (new restriction on Redirect URIs)
+* Enhancement: Update the Facebook config instructions to match their UI changes
+* Bugfix: Remove unnecessary %s from Google instructions
+
 = 1.5.1 =
 * Remove example OAuth application included within that library. Unnecessary and contains an XSS vulnerability.
 
