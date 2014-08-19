@@ -17,9 +17,9 @@ class Keyring_Service_Flickr extends Keyring_Service_OAuth1 {
 			add_filter( 'keyring_flickr_basic_ui_intro', array( $this, 'basic_ui_intro' ) );
 		}
 
-		$this->set_endpoint( 'request_token', 'http://www.flickr.com/services/oauth/request_token', 'GET' );
-		$this->set_endpoint( 'authorize',     'http://www.flickr.com/services/oauth/authorize',     'GET' );
-		$this->set_endpoint( 'access_token',  'http://www.flickr.com/services/oauth/access_token',  'GET' );
+		$this->set_endpoint( 'request_token', 'https://www.flickr.com/services/oauth/request_token', 'GET' );
+		$this->set_endpoint( 'authorize',     'https://www.flickr.com/services/oauth/authorize',     'GET' );
+		$this->set_endpoint( 'access_token',  'https://www.flickr.com/services/oauth/access_token',  'GET' );
 
 		$creds = $this->get_credentials();
 		$this->app_id  = $creds['app_id'];
@@ -33,7 +33,7 @@ class Keyring_Service_Flickr extends Keyring_Service_OAuth1 {
 	}
 
 	function basic_ui_intro() {
-		echo '<p>' . __( "To connect to Flickr, you'll need to <a href='http://www.flickr.com/services/apps/create/apply/?'>create an application at Flickr.com</a>. If this is a personal website then you can use a non-commercial key (which will be approved automatically).", 'keyring' ) . '</p>';
+		echo '<p>' . sprintf( __( 'To connect to Flickr, you\'ll need to <a href="%s">create an application at Flickr.com</a>. If this is a personal website then you can use a non-commercial key (which will be approved automatically).', 'keyring' ), 'http://www.flickr.com/services/apps/create/apply/?' ) . '</p>';
 		echo '<p>' . __( "Once you've created your app, enter the API <strong>Key</strong> and <strong>Secret</strong> below (App ID is not required for Flickr apps).", 'keyring' ) . '</p>';
 	}
 
@@ -48,7 +48,7 @@ class Keyring_Service_Flickr extends Keyring_Service_OAuth1 {
 				)
 			)
 		);
-		$url = "http://api.flickr.com/services/rest/?";
+		$url = "https://api.flickr.com/services/rest/?";
 		$params = array(
 			'method'  => 'flickr.people.getInfo',
 			'api_key' => $this->key,
