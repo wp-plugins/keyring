@@ -1,10 +1,10 @@
 === Keyring ===
 
-Contributors: beaulebens, mdawaffe, jshreve, automattic
+Contributors: beaulebens, mdawaffe, jshreve, jkudish, automattic
 Tags: authentication, security, oauth, http basic, key, token, authorization, delicious, facebook, flickr, foursquare, google contacts, instagram, instapaper, linkedin, moves, runkeeper, tripit, tumblr, twitter, yahoo, web services
 Requires at least: 3.3
-Tested up to: 3.9
-Stable Tag: 1.6
+Tested up to: 4.0
+Stable Tag: 1.6.1
 
 An authentication framework that handles authorization with external web services.
 
@@ -23,6 +23,7 @@ Out of the box, Keyring currently comes with base Service definitions for webser
 And includes an example service implementation (services/extended/example.php) plus ready-to-use definitions for:
 
 * [Delicious](http://delicious.com/)
+* [Eventbrite](http://eventbrite.com/)
 * [Facebook](http://facebook.com/)
 * [Flickr](http://flickr.com/)
 * [Foursquare](http://foursquare.com/)
@@ -92,6 +93,9 @@ Keyring just provides a framework for handling connections to external services.
 Add files to includes/services/extended/ that either implement one of the includes/services/core/ service foundations, or start from scratch. Follow one of the existing service definitions for a template, and see service.php in the root of Keyring for some detail on methods you need to define, and optional ones that might make your life easier.
 
 == Changelog ==
+= 1.6.1 =
+* Enhancement: Add Eventbrite as a service, props @jkudish
+
 = 1.6 =
 * Enhancement BREAKING: Change the way the keyring_admin_url filter is applied so that it's already got all the parameters etc added to it by the time the filter happens. Makes that filter much more flexible. You probably need to add $params to your filter function, and the add_query_arg() those params onto whatever URL you're returning.
 * Bugfix WARNING: Change the filters in get_credentials() to keyring_service_credentials, since keyring_credentials is in use, and slightly different
